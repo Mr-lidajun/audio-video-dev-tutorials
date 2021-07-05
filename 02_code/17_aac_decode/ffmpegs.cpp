@@ -162,6 +162,15 @@ void FFmpegs::aacDecode(const char *inFilename, AudioEncodeSpec &out) {
     inLen = inFile.read(inData, IN_DATA_SIZE);
     while (inLen > 0) {
         // 经过解析器解析
+        /** 调用栈查找路线
+            - av_parser_parse2
+            - av_parser_init
+            - av_parser_iterate
+            - parser_list
+            - ff_aac_parser
+            - ff_aac_ac3_parse
+            - ff_combine_frame
+        */
         ret = av_parser_parse2(parserCtx, ctx,
                                &pkt->data, &pkt->size,
                                (uint8_t *)inData, inLen,
@@ -177,9 +186,8 @@ void FFmpegs::aacDecode(const char *inFilename, AudioEncodeSpec &out) {
         // 减去已经解析过的数据大小
         inLen -= ret;
 
-        if (pkt->size <= 0) continue;
-        // 解码
-        if (decode(ctx, pkt, frame, outFile) < 0) {
+        // 解码，位置不能放在 剩余数据移动操作 的后面
+        if (pkt->size > 0 && decode(ctx, pkt, frame, outFile) < 0) {
             goto end;
         }
 
@@ -201,6 +209,9 @@ void FFmpegs::aacDecode(const char *inFilename, AudioEncodeSpec &out) {
 
         }
     }
+
+    // 不需要调用，因为这里pkt的数据不是它自己新产生的，pkt指向的是inData的数据
+    // av_packet_unref(pkt);
 
     // 刷新缓冲区（flush解码器）
     //    pkt->data = NULL;
