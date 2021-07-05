@@ -1,0 +1,1 @@
+ffmpeg -ar 44100 -ac 2 -f s16le -i in.pcm -c:a libfdk_aac -b:a 32k -profile:a aac_he_v2 16_out2.aac
