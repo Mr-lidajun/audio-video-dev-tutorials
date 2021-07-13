@@ -12,6 +12,11 @@
         goto end; \
     }
 
+#define FILENAME "D:/Dev/C_CPP/test/in.yuv"
+#define PIXEL_FORMAT SDL_PIXELFORMAT_IYUV
+#define IMG_W 512
+#define IMG_H 512
+
 PlayThread::PlayThread(QObject *parent) : QThread(parent)
 {
     // 当监听到线程结束时（finished），就调用deleteLater回收内存
@@ -32,9 +37,6 @@ PlayThread::~PlayThread() {
 }
 
 void PlayThread::run() {
-
-    // 像素数据
-    SDL_Surface *surface = nullptr;
     // 窗口
     SDL_Window *window = nullptr;
 
@@ -44,10 +46,8 @@ void PlayThread::run() {
     // 纹理（直接跟特定驱动程序相关的像素数据）
     SDL_Texture *texture = nullptr;
 
-    // 矩形框
-    SDL_Rect srcRect = {0, 0, 512, 512};
-    SDL_Rect dstRect = {200, 200, 100, 100};
-    SDL_Rect rect;
+    // 文件
+    QFile file(FILENAME);
 
     // 初始化Video子系统
     END(SDL_Init(SDL_INIT_VIDEO), SDL_Init);
@@ -56,22 +56,19 @@ void PlayThread::run() {
 //        goto end;
 //    }
 
-    // 加载BMP
-    surface = SDL_LoadBMP("D:/Dev/C_CPP/test/in.bmp");
-    END(!surface, SDL_LoadBMP);
 
     // 创建一个窗口
     window = SDL_CreateWindow(
                     // 标题
-                    "SDL显示BMP图片",
+                    "SDL显示YUV图片",
                     // x
                     SDL_WINDOWPOS_UNDEFINED,
                     // y
                     SDL_WINDOWPOS_UNDEFINED,
                     // w
-                    surface->w,
+                    IMG_W,
                     // h
-                    surface->h,
+                    IMG_H,
                     SDL_WINDOW_SHOWN);
     END(!window, SDL_CreateWindow);
 
@@ -86,35 +83,48 @@ void PlayThread::run() {
     }
 
     // 创建纹理
-    texture = SDL_CreateTextureFromSurface(renderer, surface);
-    END(!texture, SDL_CreateTextureFromSurface);
+    texture = SDL_CreateTexture(renderer,
+                                PIXEL_FORMAT,
+                                SDL_TEXTUREACCESS_STREAMING,
+                                IMG_W, IMG_H);
+    END(!texture, SDL_CreateTexture);
 
-    // 画一个红色矩形框
-    END(SDL_SetRenderDrawColor(renderer,
-                               255, 0, 0, SDL_ALPHA_OPAQUE),
-        SDL_SetRenderDrawColor);
-    rect = {0, 0, 50, 50};
-    END(SDL_RenderFillRect(renderer, &rect), SDL_RenderFillRect);
+    // 打开文件
+    if (!file.open(QFile::ReadOnly)) {
+        qDebug() << "file open error" << FILENAME;
+        goto end;
+    }
 
+    // 将YUV的像素数据填充到纹理texture
+    END(SDL_UpdateTexture(texture, nullptr, file.readAll().data(),IMG_W),
+        SDL_UpdateTexture);
 
     // 设置绘制颜色（画笔颜色）
     END(SDL_SetRenderDrawColor(renderer,
-                               255, 255, 0, SDL_ALPHA_OPAQUE),
+                               0, 0, 0, SDL_ALPHA_OPAQUE),
         SDL_SetRenderDrawColor);
 
     // 设置绘制颜色（画笔颜色）清除渲染目标
     END(SDL_RenderClear(renderer), SDL_RenderClear);
 
-    // 复制纹理到渲染目标上（默认是window）
-    END(SDL_RenderCopy(renderer, texture, &srcRect, &dstRect), SDL_RenderCopy);
+    // 拷贝纹理到渲染目标上（默认是window）
+    END(SDL_RenderCopy(renderer, texture, nullptr, nullptr), SDL_RenderCopy);
 
     // 更新所有的渲染操作到屏幕上
     SDL_RenderPresent(renderer);
 
-    SDL_Delay(2000);
+    // 等待退出事件
+    while (!isInterruptionRequested()) {
+        SDL_Event event;
+        SDL_WaitEvent(&event);
+        switch (event.type) {
+            case SDL_QUIT:
+                goto end;
+        }
+    }
 
 end:
-    SDL_FreeSurface(surface);
+    file.close();
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
