@@ -41,26 +41,35 @@ public:
     State getState();
 
 private:
+    /** 定时器ID */
+    int _timerId = 0;
     /** 文件 */
     QFile _file;
     /** 播放器状态 */
     State _state = Stopped;
-    // 非引用，会拷贝一份，如果是引用，存在引用内容被销毁的危险
+    /** 非引用，会拷贝一份，如果是引用，存在引用内容被销毁的危险 */
     Yuv _yuv;
 
     /** QImage指针 */
     QImage *_currentImage = nullptr;
     QRect _dstRect;
+
+    /** 改变状态 */
+    void setState(State state);
+
     /** 释放图片 */
     void freeCurrentImage();
-    /** 定时器ID */
-    int _timerId = 0;
+
+    /** 停止定时器 */
+    void stopTimer();
+
     /** 定时器函数，重写这个虚函数 */
     void timerEvent(QTimerEvent *event);
     void paintEvent(QPaintEvent *event);
 
 signals:
-
+    /** 信号 */
+    void stateChanged();
 };
 
 #endif // YUVPLAYER_H

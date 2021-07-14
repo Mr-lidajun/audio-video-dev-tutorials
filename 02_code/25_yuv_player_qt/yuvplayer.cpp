@@ -21,27 +21,62 @@ YuvPlayer::~YuvPlayer() {
 }
 
 void YuvPlayer::play() {
+    // 防止多次调用
+    if (_state == Playing) return;
+
+    // 状态可能是：暂停、停止、正常完毕
+
     // 开启定时器，1000 / _yuv.fps表示一帧需要多少时间
     _timerId = startTimer(1000 / _yuv.fps);
-    _state = YuvPlayer::Playing;
+    setState(Playing);
 }
 
 void YuvPlayer::pause() {
-    if (_timerId) {// 非0为真
-        killTimer(_timerId);
-    }
-    _state = YuvPlayer::Paused;
+    if (_state != Playing) return;
+
+    // 状态可能是：正在播放
+
+    // 停止定时器
+    stopTimer();
+
+    // 改变状态
+    setState(Paused);
 }
 
 void YuvPlayer::stop() {
-    if (_timerId) {// 非0为真
-        killTimer(_timerId);
-    }
-    _state = YuvPlayer::Stopped;
+    if (_state == Stopped) return;
+
+    // 状态可能是：正在播放、暂停、正常完毕
+
+    // 停止定时器
+    stopTimer();
+
+    // 释放图片
+    freeCurrentImage();
+
+    // 刷新，显示黑屏
+    update();
+
+    // 改变状态
+    setState(Stopped);
 }
 
 bool YuvPlayer::isPlaying() {
     return _state == YuvPlayer::Playing;
+}
+
+void YuvPlayer::setState(State state) {
+    if (state == _state) return;
+
+    if (state == Stopped
+            || state == Finished) {
+        // 让文件读取指针回到文件首部
+        _file.seek(0);
+    }
+
+    _state = state;
+    // 发送信号
+    emit stateChanged();
 }
 
 YuvPlayer::State YuvPlayer::getState() {
@@ -133,7 +168,17 @@ void YuvPlayer::timerEvent(QTimerEvent *event) {
     } else {
         // 文件数据已经读取完毕
         killTimer(_timerId);
+
+        // 正常播放完毕
+        setState(Finished);
     }
+}
+
+void YuvPlayer::stopTimer() {
+    if (_timerId == 0) return;
+
+    killTimer(_timerId);
+    _timerId = 0;
 }
 
 void YuvPlayer::freeCurrentImage() {
