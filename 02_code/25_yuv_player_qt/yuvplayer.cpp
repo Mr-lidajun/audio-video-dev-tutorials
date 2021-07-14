@@ -16,8 +16,9 @@ YuvPlayer::YuvPlayer(QWidget *parent) : QWidget(parent) {
 
 // 析构函数
 YuvPlayer::~YuvPlayer() {
-    _file.close();
+    closeFile();
     freeCurrentImage();
+    stopTimer();
 }
 
 void YuvPlayer::play() {
@@ -71,7 +72,7 @@ void YuvPlayer::setState(State state) {
     if (state == Stopped
             || state == Finished) {
         // 让文件读取指针回到文件首部
-        _file.seek(0);
+        _file->seek(0);
     }
 
     _state = state;
@@ -86,11 +87,24 @@ YuvPlayer::State YuvPlayer::getState() {
 void YuvPlayer::setYuv(Yuv &yuv) {
     _yuv = yuv;
 
+    // 关闭上一个文件
+    closeFile();
+
+     qDebug() << "打开" << yuv.filename;
+
     // 打开文件
-    _file.setFileName(yuv.filename);
-    if (!_file.open(QFile::ReadOnly)) {
+    _file = new QFile(yuv.filename);
+    if (!_file->open(QFile::ReadOnly)) {
         qDebug() << "file open error" << yuv.filename;
     }
+
+    // 存储格式为：I420(yuv420p)，1个像素平均占用12bit（1.5字节）
+    // 一帧图片的大小
+    //int imgSize = width * height * 1.5;
+    _imgSize = av_image_get_buffer_size(yuv.pixeFormat,
+                                        yuv.width,
+                                        yuv.height,
+                                        1);
 
     // 组件的尺寸
     int w = width();
@@ -139,14 +153,10 @@ void YuvPlayer::paintEvent(QPaintEvent *event) {
 
 // 每隔一段时间就会调用
 void YuvPlayer::timerEvent(QTimerEvent *event) {
-    // 存储格式为：I420(yuv420p)，1个像素平均占用12bit（1.5字节）
-    // 一帧图片的大小
-    //int imgSize = width * height * 1.5;
-    int imgSize = av_image_get_buffer_size(_yuv.pixeFormat,
-                                           _yuv.width, _yuv.height, 1);
+
     // 一帧的数据
-    char data[imgSize];
-    if (_file.read(data, imgSize) > 0) {
+    char data[_imgSize];
+    if (_file->read(data, _imgSize) == _imgSize) {
         RawVideoFrame in = {
             data,
             _yuv.width, _yuv.height,
@@ -172,6 +182,14 @@ void YuvPlayer::timerEvent(QTimerEvent *event) {
         // 正常播放完毕
         setState(Finished);
     }
+}
+
+void YuvPlayer::closeFile() {
+    if (!_file) return;
+
+    _file->close();
+    delete _file;
+    _file = nullptr;
 }
 
 void YuvPlayer::stopTimer() {

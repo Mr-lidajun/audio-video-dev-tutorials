@@ -44,11 +44,13 @@ private:
     /** 定时器ID */
     int _timerId = 0;
     /** 文件 */
-    QFile _file;
+    QFile *_file = nullptr;
     /** 播放器状态 */
     State _state = Stopped;
     /** 非引用，会拷贝一份，如果是引用，存在引用内容被销毁的危险 */
     Yuv _yuv;
+    /** 一帧图片的大小 */
+    int _imgSize;
 
     /** QImage指针 */
     QImage *_currentImage = nullptr;
@@ -56,6 +58,9 @@ private:
 
     /** 改变状态 */
     void setState(State state);
+
+    /** 关闭文件 */
+    void closeFile();
 
     /** 释放图片 */
     void freeCurrentImage();
