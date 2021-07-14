@@ -28,7 +28,7 @@ void YuvPlayer::play() {
     // 状态可能是：暂停、停止、正常完毕
 
     // 开启定时器，1000 / _yuv.fps表示一帧需要多少时间
-    _timerId = startTimer(1000 / _yuv.fps);
+    _timerId = startTimer(_interval);
     setState(Playing);
 }
 
@@ -98,6 +98,9 @@ void YuvPlayer::setYuv(Yuv &yuv) {
         qDebug() << "file open error" << yuv.filename;
     }
 
+    // 刷帧的时间间隔
+    _interval = 1000 / _yuv.fps;
+
     // 存储格式为：I420(yuv420p)，1个像素平均占用12bit（1.5字节）
     // 一帧图片的大小
     //int imgSize = width * height * 1.5;
@@ -165,7 +168,8 @@ void YuvPlayer::timerEvent(QTimerEvent *event) {
 
         RawVideoFrame out = {
             nullptr,
-            _yuv.width, _yuv.height,
+            _yuv.width >> 4 << 4,// 转换的内容最好是16的倍数
+            _yuv.height >> 4 << 4,
             AV_PIX_FMT_RGB24
         };
         FFmpegs::convertRawVideo(in, out);
@@ -175,9 +179,9 @@ void YuvPlayer::timerEvent(QTimerEvent *event) {
                                    out.width, out.height, QImage::Format_RGB888);
         // 刷新
         update();
-    } else {
-        // 文件数据已经读取完毕
-        killTimer(_timerId);
+    } else {// 文件数据已经读取完毕
+        // 停止定时器
+        stopTimer();
 
         // 正常播放完毕
         setState(Finished);

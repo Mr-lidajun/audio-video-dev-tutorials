@@ -51,6 +51,8 @@ private:
     Yuv _yuv;
     /** 一帧图片的大小 */
     int _imgSize;
+    /** 刷帧的时间间隔 */
+    int _interval;
 
     /** QImage指针 */
     QImage *_currentImage = nullptr;

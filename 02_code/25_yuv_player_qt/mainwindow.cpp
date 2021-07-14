@@ -42,8 +42,8 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::onPlayerStateChanged);
 
     // 设置播放器的位置和尺寸
-    int w = 300;
-    int h = 300;
+    int w = 500;
+    int h = 500;
     int x = (width() - w) >> 1;
     int y = (height() - h) >> 1;
     _player->setGeometry(x, y, w, h);
