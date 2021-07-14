@@ -56,6 +56,41 @@ void YuvPlayer::setYuv(Yuv &yuv) {
     if (!_file.open(QFile::ReadOnly)) {
         qDebug() << "file open error" << yuv.filename;
     }
+
+    // 组件的尺寸
+    int w = width();
+    int h = height();
+
+    // 计算rect
+    int dx = 0;
+    int dy = 0;
+    int dw = yuv.width;
+    int dh = yuv.height;
+
+    // 计算目标尺寸
+    if (dw > w || dh > h) {// 缩放
+        // dw/dh > w/h
+        if (dw * h > w * dh) { // 视频的宽高比 > 播放器的宽高比
+            /**
+                w    dw
+                -- = --
+                dh   dh
+            */
+            // 已知缩放视频的宽度（w），根据视频的宽高比（dw/dh）,求出缩放视频的高度(dh)
+            dh = w * dh / dw;
+            dw = w;
+        } else {
+            dw = h * dw / dh;
+            dh = h;
+        }
+    }
+
+    // 居中
+    dx = (w - dw) >> 1;
+    dy = (h - dh) >> 1;
+
+    _dstRect = QRect(dx, dy, dw, dh);
+    qDebug() << "视频的矩形框" << dx << dy << dw << dh;
 }
 
 // 当组件想重绘的时候，就会调用这个函数
@@ -64,7 +99,7 @@ void YuvPlayer::paintEvent(QPaintEvent *event) {
     if (!_currentImage) return;
 
     // 将图片绘制到当前组件上
-    QPainter(this).drawImage(QPoint(0, 0), *_currentImage);
+    QPainter(this).drawImage(_dstRect, *_currentImage);
 }
 
 // 每隔一段时间就会调用
