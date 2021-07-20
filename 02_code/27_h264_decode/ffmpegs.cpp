@@ -245,10 +245,18 @@ void FFmpegs::h264Decode(const char *inFilename, VideoDecodeSpec &out) {
     // https://patchwork.ffmpeg.org/project/ffmpeg/patch/tencent_609A2E9F73AB634ED670392DD89A63400008@qq.com/
 
     // 读取文件数据
-    while ((inLen = inFile.read(inDataArray, IN_DATA_SIZE)) > 0) {
+    do {
+        inLen = inFile.read(inDataArray, IN_DATA_SIZE);
+        // 设置是否到了文件尾部
+        inEnd = !inLen;
+
+        // 让inData指向数组的首元素
         inData = inDataArray;
 
-        while (inLen > 0) {
+        // 只要输入缓冲区中还有等待进行解码的数据
+        while (inLen > 0 || inEnd) {
+            // 到了文件尾部（虽然没有读取任何数据，但也要调用av_parser_parse2，修复bug）
+
             // 经过解析器解析
             ret = av_parser_parse2(parserCtx, ctx,
                                    &pkt->data, &pkt->size,
@@ -265,12 +273,17 @@ void FFmpegs::h264Decode(const char *inFilename, VideoDecodeSpec &out) {
             // 减去已经解析过的数据大小
             inLen -= ret;
 
+            qDebug() << inEnd << pkt->size << ret;
+
             // 解码，位置不能放在 剩余数据移动操作 的后面
             if (pkt->size > 0 && decode(ctx, pkt, frame, outFile) < 0) {
                 goto end;
             }
+
+            // 如果到了文件尾部
+            if (inEnd) break;
         }
-    }
+    } while (!inEnd);
 
     // 不需要调用，因为这里pkt的数据不是它自己新产生的，pkt指向的是inData的数据
     // av_packet_unref(pkt);
@@ -300,3 +313,34 @@ end:
 
     qDebug() << "h264解码完成";
 }
+
+// bug fix
+// https://patchwork.ffmpeg.org/project/ffmpeg/patch/tencent_609A2E9F73AB634ED670392DD89A63400008@qq.com/
+
+//    // 读取文件数据
+//    while ((inLen = inFile.read(inDataArray, IN_DATA_SIZE)) > 0) {
+//        inData = inDataArray;
+
+//        while (inLen > 0) {
+//            // 经过解析器解析
+//            ret = av_parser_parse2(parserCtx, ctx,
+//                                   &pkt->data, &pkt->size,
+//                                   (uint8_t *)inData, inLen,
+//                                   AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
+//            if (ret < 0) {
+//                ERROR_BUF(ret);
+//                qDebug() << "av_parser_parse2 error" << errbuf;
+//                goto end;
+//            }
+
+//            // 跳过已经解析过的数据
+//            inData += ret;
+//            // 减去已经解析过的数据大小
+//            inLen -= ret;
+
+//            // 解码，位置不能放在 剩余数据移动操作 的后面
+//            if (pkt->size > 0 && decode(ctx, pkt, frame, outFile) < 0) {
+//                goto end;
+//            }
+//        }
+//    }
