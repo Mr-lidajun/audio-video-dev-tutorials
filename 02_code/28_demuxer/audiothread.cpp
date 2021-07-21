@@ -31,9 +31,11 @@ AudioThread::~AudioThread() {
 // 耗时操作应该放在run函数中
 void AudioThread::run() {
 
+    // ffplay -ar 44100 -ac 2 -f f32le 28_out_dragon_ball.pcm
     AudioDecodeSpec aOut;
     aOut.filename = "D:/Dev/C_CPP/test/28_out_dragon_ball.pcm";
 
+    // ffplay -video_size 640x480 -pixel_format yuv420p 28_out_dragon_ball.yuv
     VideoDecodeSpec vOut;
     vOut.filename = "D:/Dev/C_CPP/test/28_out_dragon_ball.yuv";
 

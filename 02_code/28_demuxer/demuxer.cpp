@@ -34,6 +34,7 @@ void Demuxer::demux(const char *inFilename,
     _aOut = &aOut;
     _vOut = &vOut;
 
+    // 存放解码前的数据
     AVPacket *pkt = nullptr;
 
     // 返回结果
@@ -132,6 +133,11 @@ int Demuxer::initAudioInfo() {
     _aOut->sampleFmt = _aDecodeCtx->sample_fmt;
     _aOut->chLayout = _aDecodeCtx->channel_layout;
 
+    // 每一个音频样本的大小（单声道）
+    _sampleSize = av_get_bytes_per_sample(_aOut->sampleFmt);
+    // 每个音频样本帧（包含所有声道）的大小
+    _sampleFrameSize = _sampleSize * _aDecodeCtx->channels;
+
     return 0;
 }
 
@@ -196,6 +202,13 @@ int Demuxer::initDecoder(AVCodecContext **decodeCtx,
     }
 
     // 为当前流找到合适的解码器
+//    AVCodec *decoder = nullptr;
+//    if (stream->codecpar->codec_id == AV_CODEC_ID_AAC) {
+//        // 如果是AAC，则使用libfdk_aac解码器
+//        decoder = avcodec_find_decoder_by_name("libfdk_aac");
+//    } else {
+//        decoder = avcodec_find_decoder(stream->codecpar->codec_id);
+//    }
     AVCodec *decoder = avcodec_find_decoder(stream->codecpar->codec_id);
     if (!decoder) {
         qDebug() << "decoder not found" << stream->codecpar->codec_id;
@@ -250,23 +263,63 @@ int Demuxer::decode(AVCodecContext *decodeCtx,
 }
 
 void Demuxer::writeVideoFrame() {
-    // 将解码后的数据写入文件
-    // frame->linesize[0]: 对于视频，以字节为单位的每一行图片的大小
-    if (_vDecodeCtx->pix_fmt == AV_PIX_FMT_YUV420P) {
-        // 写入Y平面
-        _vOutFile.write((char *) _frame->data[0],
-                _frame->linesize[0] * _vOut->height);
-        // 写入U平面，U平面的高度是整体高度的一半
-        _vOutFile.write((char *) _frame->data[1],
-                _frame->linesize[1] * _vOut->height >> 1);
-        // 写入V平面，V平面的高度是整体高度的一半
-        _vOutFile.write((char *) _frame->data[2],
-                _frame->linesize[2] * _vOut->height >> 1);
-    } else if (_vDecodeCtx->pix_fmt == AV_PIX_FMT_YUV422P) {
-        // 代码略
-    }
+//    // 将解码后的数据写入文件
+//    // frame->linesize[0]: 对于视频，以字节为单位的每一行图片的大小
+//    if (_vDecodeCtx->pix_fmt == AV_PIX_FMT_YUV420P) {
+//        // 写入Y平面
+//        _vOutFile.write((char *) _frame->data[0],
+//                _frame->linesize[0] * _vOut->height);
+//        // 写入U平面，U平面的高度是整体高度的一半
+//        _vOutFile.write((char *) _frame->data[1],
+//                _frame->linesize[1] * _vOut->height >> 1);
+//        // 写入V平面，V平面的高度是整体高度的一半
+//        _vOutFile.write((char *) _frame->data[2],
+//                _frame->linesize[2] * _vOut->height >> 1);
+//    } else if (_vDecodeCtx->pix_fmt == AV_PIX_FMT_YUV422P) {
+//        // 代码略
+//    }
+
+    // 拷贝frame的数据到_imgBuf缓冲区
+    av_image_copy(_imgBuf, _imgLinesizes,
+                  (const uint8_t**)(_frame->data), _frame->linesize,
+                  _vOut->pixFmt, _vOut->width, _vOut->height);
+    // 将缓冲区的数据写入文件
+    _vOutFile.write((char *) _imgBuf[0], _imgSize);
 }
 
+/**
+ * D:\Dev\source\ffmpeg-4.3.2\doc\examples\decode_audio.c
+ * decode函数
+ */
 void Demuxer::writeAudioFrame() {
+    // libfdk_aac解码器，解码出来的PCM格式：s16
+    // aac解码器，解码出来的PCM格式：ftlp
+
+    // LLLL RRRR DDDD FFFF
+
+    if (av_sample_fmt_is_planar(_aOut->sampleFmt)) { // planar，LLLRRR
+        // 外层循环：每一个声道的样本数
+        // si = sample index
+        for (int si = 0; si < _frame->nb_samples; si++) {
+            // 内层循环：有多少个声道
+            // ci = channel index
+            for (int ci = 0; ci < _aDecodeCtx->channels; ci++) {
+                char *begin = (char *) (_frame->data[ci] + si * _sampleSize);
+                _aOutFile.write(begin, _sampleSize);
+            }
+        }
+    } else { // 非planar，只有一个平面，LR左右声道数据是在一起的，LRLRLR
+//        int v1 = _frame->linesize[0];
+//        int v2 = _frame->nb_samples // 音频采样数(单通道)
+//                * av_get_bytes_per_sample(_aOut->sampleFmt) // 每个样本的字节数
+//                * _aDecodeCtx->channels; // 音频通道数
+//        if (v1 != v2) {
+//            qDebug() << "_frame->linesize[0]" << v1
+//                     << "_frame->nb_samples" << v2;
+//        }
+//        _aOutFile.write((char *) _frame->data[0], _frame->linesize[0]);
+        _aOutFile.write((char *) _frame->data[0],
+                _frame->nb_samples * _sampleFrameSize);
+    }
 
 }

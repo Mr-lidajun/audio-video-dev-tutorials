@@ -74,6 +74,10 @@ private:
     uint8_t *_imgBuf[4] = {nullptr};
     int _imgLinesizes[4] = {0};
     int _imgSize = 0;
+    // 每个音频样本帧（包含所有声道）的大小
+    int _sampleFrameSize = 0;
+    // 每一个音频样本的大小（单声道）
+    int _sampleSize = 0;
 
     int initAudioInfo();
     int initVideoInfo();
