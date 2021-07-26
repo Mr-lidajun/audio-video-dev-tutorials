@@ -35,3 +35,20 @@ FORMS += \
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+# windows，自己编译的ffmpeg，包含aac编码库libfdk_aac
+win32 {
+    FFMPEG_HOME = D:/msys64/usr/local/ffmpeg
+}
+
+# mac,自己编译的ffmpeg，包含aac编码库libfdk_aac
+macx {
+    FFMPEG_HOME = /usr/local/ffmpeg
+}
+
+INCLUDEPATH += $${FFMPEG_HOME}/include
+
+LIBS += -L $${FFMPEG_HOME}/lib \
+        -lavcodec \
+        -lavformat \
+        -lavutil
