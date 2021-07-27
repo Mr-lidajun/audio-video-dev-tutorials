@@ -12,11 +12,13 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // 创建互斥锁
-    _mutex = SDL_CreateMutex();
+    _mutex = new CondMutex();
 
-    // 创建条件变量
-    _cond = SDL_CreateCond();
+//    // 创建互斥锁
+//    _mutex = SDL_CreateMutex();
+
+//    // 创建条件变量
+//    _cond = SDL_CreateCond();
 
     // 创建链表
     _list = new std::list<QString>;
@@ -32,8 +34,9 @@ MainWindow::~MainWindow()
 {
     delete ui;
     delete _list;
-    SDL_DestroyMutex(_mutex);
-    SDL_DestroyCond(_cond);
+    delete _mutex;
+//    SDL_DestroyMutex(_mutex);
+//    SDL_DestroyCond(_cond);
 }
 
 void MainWindow::on_productBtn_clicked()
@@ -47,7 +50,8 @@ void MainWindow::consume(QString name) {
     // 创建消费者
     std::thread([this, name]() {
         // 加锁
-        SDL_LockMutex(_mutex);
+//        SDL_LockMutex(_mutex);
+        _mutex->lock();
 
         while (true) {
             qDebug() << name << "拿到了锁";
@@ -66,18 +70,21 @@ void MainWindow::consume(QString name) {
              * 3.等到了条件_cond，并且加锁
              */
             qDebug() << name << "进入等待...";
-            SDL_CondWait(_cond, _mutex);
+//            SDL_CondWait(_cond, _mutex);
+            _mutex->wait();
         }
 
         // 解锁
-        SDL_UnlockMutex(_mutex);
+//        SDL_UnlockMutex(_mutex);
+        _mutex->unlock();
     }).detach();
 }
 
 void MainWindow::produce(QString name) {
     std::thread([this, name]() {
         // 加锁
-        SDL_LockMutex(_mutex);
+//        SDL_LockMutex(_mutex);
+        _mutex->lock();
 
         qDebug() << name << "开始生产";
 
@@ -85,9 +92,11 @@ void MainWindow::produce(QString name) {
         _list->push_back(QString("%1").arg(++_index));
         _list->push_back(QString("%1").arg(++_index));
 
-        // 唤醒等待_cond的线程
-        SDL_CondSignal(_cond);
-        // 解锁
-        SDL_UnlockMutex(_mutex);
+//        // 唤醒等待_cond的线程
+//        SDL_CondSignal(_cond);
+//        // 解锁
+//        SDL_UnlockMutex(_mutex);
+        _mutex->signal();
+        _mutex->unlock();
     }).detach();
 }
