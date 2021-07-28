@@ -5,7 +5,8 @@
 #pragma mark - 构造、析构
 VideoPlayer::VideoPlayer(QObject *parent) : QObject(parent)
 {
-
+//    _aPktList = new std::list<AVPacket>();
+//    _vPktList = new std::list<AVPacket>();
 }
 
 VideoPlayer::~VideoPlayer() {
@@ -98,13 +99,17 @@ void VideoPlayer::readFile() {
     AVPacket pkt;
 
     // 从输入文件中读取数据
-    while (av_read_frame(_fmtCtx, &pkt) == 0) {
-        if (pkt.stream_index == _aStream->index) { // 读取到的是音频数据
-
-        } else if (pkt.stream_index == _vStream->index) { // 读取到的是视频数据
-
+    while (true) {
+        ret = av_read_frame(_fmtCtx, &pkt);
+        if (ret == 0) {
+            if (pkt.stream_index == _aStream->index) { // 读取到的是音频数据
+                addAudioPkt(pkt);
+            } else if (pkt.stream_index == _vStream->index) { // 读取到的是视频数据
+                addVideoPkt(pkt);
+            }
+        } else {
+            continue;
         }
-
     }
 
 end:
@@ -120,28 +125,6 @@ void VideoPlayer::setState(State state) {
     _state = state;
 
     emit stateChanged(this);
-}
-
-/**
- * 初始化音频信息
- */
-int VideoPlayer::initAudioInfo() {
-    // 初始化解码器
-    int ret = initDecoder(&_aDecodeCtx, &_aStream, AVMEDIA_TYPE_AUDIO);
-    RET(initDecoder);
-
-    return 0;
-}
-
-/**
- * 初始化视频信息
- */
-int VideoPlayer::initVideoInfo() {
-    // 初始化解码器
-    int ret = initDecoder(&_vDecodeCtx, &_vStream, AVMEDIA_TYPE_VIDEO);
-    RET(initDecoder);
-
-    return 0;
 }
 
 /**
