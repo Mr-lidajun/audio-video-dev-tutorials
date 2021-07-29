@@ -33,6 +33,8 @@ void VideoPlayer::pause() {
 
     // 改变状态
     setState(Paused);
+
+
 }
 
 void VideoPlayer::stop() {
@@ -40,7 +42,11 @@ void VideoPlayer::stop() {
     // 状态可能是：正在播放、暂停、正常完毕
 
     // 改变状态
-    setState(Stopped);
+//    setState(Stopped);
+    _state = Stopped;
+
+    // 释放资源
+    free();
 
     // 通知外界
     emit stateChanged(this);
@@ -62,6 +68,22 @@ void VideoPlayer::setFilename(QString &filename) {
 int64_t VideoPlayer::getDuration() {
 //    return _fmtCtx ? _fmtCtx->duration : 0;
      return _fmtCtx ? round(_fmtCtx->duration / 1000000.0) : 0;
+}
+
+void VideoPlayer::setVolumn(int volumn) {
+    _volumn = volumn;
+}
+
+int VideoPlayer::getVolumn() {
+    return _mute;
+}
+
+void VideoPlayer::setMute(bool mute) {
+    _mute = mute;
+}
+
+bool VideoPlayer::isMute() {
+    return _mute;
 }
 
 #pragma mark - 私有方法
@@ -86,6 +108,8 @@ void VideoPlayer::readFile() {
     // 初始化视频信息
     _hasVideo = initVideoInfo() >= 0;
     if (!_hasAudio && !_hasVideo) {
+        emit playFailed(this);
+        free();
         return;
     }
 
@@ -96,10 +120,9 @@ void VideoPlayer::readFile() {
     setState(Playing);
 
     // 从输入文件中读取数据
-    AVPacket pkt;
-
-    // 从输入文件中读取数据
-    while (true) {
+    while (_state != Stopped) {
+        // 从输入文件中读取数据
+        AVPacket pkt;
         ret = av_read_frame(_fmtCtx, &pkt);
         if (ret == 0) {
             if (pkt.stream_index == _aStream->index) { // 读取到的是音频数据
@@ -107,15 +130,15 @@ void VideoPlayer::readFile() {
             } else if (pkt.stream_index == _vStream->index) { // 读取到的是视频数据
                 addVideoPkt(pkt);
             }
+        } else if (ret == AVERROR_EOF) { // 读到了文件的尾部
+            qDebug() << "已经读取到了文件尾部";
+            break;
         } else {
+            ERROR_BUF;
+            qDebug() << "av_read_frame error" << errbuf;
             continue;
         }
     }
-
-end:
-    avcodec_free_context(&_aDecodeCtx);
-    avcodec_free_context(&_vDecodeCtx);
-    avformat_close_input(&_fmtCtx);
 }
 
 
@@ -174,4 +197,10 @@ int VideoPlayer::initDecoder(AVCodecContext **decodeCtx,
     RET(avcodec_open2);
 
     return 0;
+}
+
+void VideoPlayer::free() {
+    avformat_close_input(&_fmtCtx);
+    freeAudio();
+    freeVideo();
 }

@@ -9,6 +9,7 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
+#include <libswresample/swresample.h>
 }
 
 #define ERROR_BUF \
@@ -21,7 +22,8 @@ extern "C" {
         qDebug() << #func << "error" << errbuf; \
         setState(Stopped); \
         emit playFailed(this); \
-        goto end; \
+        free(); \
+        return; \
     }
 
 #define RET(func) \
@@ -52,6 +54,12 @@ public:
         Paused
     } State;
 
+    // 音量
+    typedef enum {
+        Min = 0,
+        Max = 100
+    } Volumn;
+
     explicit VideoPlayer(QObject *parent = nullptr);
     // 析构函数
     ~VideoPlayer();
@@ -71,6 +79,13 @@ public:
     /** 获取总时长（单位是微秒，1秒=10^3毫秒=10^6微秒） */
     /** 获取总时长（单位是秒） */
     int64_t getDuration();
+    /** 设置音量 */
+    void setVolumn(int volumn);
+    int getVolumn();
+    /** 设置静音 */
+    void setMute(bool mute);
+    bool isMute();
+
 
 
 private:
@@ -91,12 +106,23 @@ private:
     std::list<AVPacket> _aPktList;
     /** 音频包列表的锁 */
     CondMutex _aMutex;
-    AVFrame *_aFrame;
+    /** 音频重采样上下文 */
+    SwrContext *_aSwrCtx = nullptr;
+    /** 音频重采样输入\输出参数 */
+    AudioSwrSpec _aSwrInSpec, _aSwrOutSpec;
+    /** 音频重采样输入\输出frame */
+    AVFrame *_aSwrInFrame, *_aSwrOutFrame;
+    /** 音频重采样输出PCM的索引（从哪个位置开始取出PCM数据填充到SDL的音频缓冲区） */
+    int _aSwrOutIdx = 0;
+    /** 音频重采样输出PCM的大小 */
+    int _aSwrOutSize = 0;
     /** 是否有音频流 */
     bool _hasAudio = false;
 
     /** 初始化音频信息 */
     int initAudioInfo();
+    /** 初始化音频重采样 */
+    int initSwr();
     /** 初始化SDL */
     int initSDL();
     /** 添加数据包到音频包列表中 */
@@ -117,6 +143,8 @@ private:
     AVStream *_vStream = nullptr;
     /** 存放视频包的列表 */
     std::list<AVPacket> _vPktList;
+    /** 视频包列表的锁 */
+    CondMutex _vMutex;
     /** 是否有视频流 */
     bool _hasVideo = false;
 
@@ -132,6 +160,10 @@ private:
     /******** 其他 ********/
     /** 解封装上下文 */
     AVFormatContext *_fmtCtx = nullptr;
+    /** 音量 */
+    int _volumn = Max;
+    /** 静音 */
+    bool _mute = false;
     /** 当前的状态 */
     State _state = Stopped;
     /** 文件名 */
@@ -144,6 +176,10 @@ private:
     void setState(State state);
     /** 读取文件数据 */
     void readFile();
+    /** 释放资源 */
+    void free();
+    void freeAudio();
+    void freeVideo();
     /** 严重错误 */
     void fataError();
 

@@ -11,6 +11,12 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    // 设置音量滑块的范围
+    ui->volumnSlider->setRange(VideoPlayer::Volumn::Min,
+                               VideoPlayer::Volumn::Max);
+    // 设置音量默认值
+    ui->volumnSlider->setValue(ui->volumnSlider->maximum());
+
     // 创建播放器
     _player = new VideoPlayer();
     // 监听信号
@@ -58,7 +64,7 @@ void MainWindow::onPlayerStateChanged(VideoPlayer *player) {
         ui->stopBtn->setEnabled(false);
         ui->currentSlider->setEnabled(false);
         ui->volumnSlider->setEnabled(false);
-        ui->silenceBtn->setEnabled(false);
+        ui->muteBtn->setEnabled(false);
 
         ui->durationLabel->setText(getTimeText(0));
         ui->currentSlider->setValue(0);
@@ -70,7 +76,7 @@ void MainWindow::onPlayerStateChanged(VideoPlayer *player) {
         ui->stopBtn->setEnabled(true);
         ui->currentSlider->setEnabled(true);
         ui->volumnSlider->setEnabled(true);
-        ui->silenceBtn->setEnabled(true);
+        ui->muteBtn->setEnabled(true);
 
         // 显示播放视频的页面
         ui->playWidget->setCurrentWidget(ui->videoPage);
@@ -83,8 +89,7 @@ void MainWindow::on_openFileBtn_clicked()
                         nullptr,
                         "选择多媒体文件",
                         "D:/Dev/C_CPP/test",
-                        "视频文件 (*.mp4 *.avi *.mkv);;"
-                        "音频文件 (*.mp3 *.aac)");
+                        "多媒体文件 (*.mp4 *.avi *.mkv *.mp3 *.aac)");
     qDebug() << "打开文件" << filename;
     if (filename.isEmpty()) return;
 
@@ -112,6 +117,7 @@ void MainWindow::on_currentSlider_valueChanged(int value)
 void MainWindow::on_volumnSlider_valueChanged(int value)
 {
     ui->volumnLabel->setText(QString("%1").arg(value));
+    _player->setVolumn(value);
 }
 
 QString MainWindow::getTimeText(int value) {
@@ -132,3 +138,14 @@ QString MainWindow::getTimeText(int value) {
            .arg(value % 60, 2, 10, fill);
 }
 
+
+void MainWindow::on_muteBtn_clicked()
+{
+    if (_player->isMute()) {
+        _player->setMute(false);
+        ui->muteBtn->setText("静音");
+    } else {
+        _player->setMute(true);
+        ui->muteBtn->setText("开音");
+    }
+}
