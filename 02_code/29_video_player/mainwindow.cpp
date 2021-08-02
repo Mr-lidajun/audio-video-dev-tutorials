@@ -11,12 +11,6 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // 设置音量滑块的范围
-    ui->volumnSlider->setRange(VideoPlayer::Volumn::Min,
-                               VideoPlayer::Volumn::Max);
-    // 设置音量默认值
-    ui->volumnSlider->setValue(ui->volumnSlider->maximum());
-
     // 创建播放器
     _player = new VideoPlayer();
     // 监听信号
@@ -26,6 +20,12 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::onPlayerInitFinished);
     connect(_player, &VideoPlayer::playFailed,
             this, &MainWindow::onPlayerPlayFailed);
+
+    // 设置音量滑块的范围
+    ui->volumnSlider->setRange(VideoPlayer::Volumn::Min,
+                               VideoPlayer::Volumn::Max);
+    // 设置音量默认值
+    ui->volumnSlider->setValue(ui->volumnSlider->maximum());
 }
 
 MainWindow::~MainWindow()
