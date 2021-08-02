@@ -10,28 +10,12 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
 #include <libswresample/swresample.h>
+#include <libswscale/swscale.h>
 }
 
 #define ERROR_BUF \
     char errbuf[1024]; \
     av_strerror(ret, errbuf, sizeof (errbuf));
-
-#define END(func) \
-    if (ret < 0) { \
-        ERROR_BUF; \
-        qDebug() << #func << "error" << errbuf; \
-        setState(Stopped); \
-        emit playFailed(this); \
-        free(); \
-        return; \
-    }
-
-#define RET(func) \
-    if (ret < 0) { \
-        ERROR_BUF; \
-        qDebug() << #func << "error" << errbuf; \
-        return ret; \
-    }
 
 #define CODE(func, code) \
     if (ret < 0) { \
@@ -39,6 +23,11 @@ extern "C" {
         qDebug() << #func << "error" << errbuf; \
         code; \
     }
+
+#define END(func) CODE(func, fataError(); return;)
+#define RET(func) CODE(func, return ret;)
+#define CONTINUE(func) CODE(func, continue;)
+#define BREAK(func) CODE(func, break;)
 
 /**
  * 预处理视频数据（不负责显示、渲染视频）
@@ -59,6 +48,14 @@ public:
         Min = 0,
         Max = 100
     } Volumn;
+
+    // 视频frame参数
+    typedef struct {
+        int width;
+        int height;
+        AVPixelFormat pixFmt;
+        int size;
+    } VideoSwsSpec;
 
     explicit VideoPlayer(QObject *parent = nullptr);
     // 析构函数
@@ -141,6 +138,12 @@ private:
     AVCodecContext *_vDecodeCtx = nullptr;
     /** 流 */
     AVStream *_vStream = nullptr;
+    /** 像素格式转换的输入\输出frame */
+    AVFrame *_vSwsInFrame = nullptr, *_vSwsOutFrame = nullptr;
+    /** 像素格式转换的上下文 */
+    SwsContext *_vSwsCtx = nullptr;
+    /** 像素格式转换的输出frame的参数 */
+    VideoSwsSpec _vSwsOutSpec;
     /** 存放视频包的列表 */
     std::list<AVPacket> _vPktList;
     /** 视频包列表的锁 */
@@ -150,6 +153,8 @@ private:
 
     /** 初始化视频信息 */
     int initVideoInfo();
+    /** 初始化视频像素格式转换 */
+    int initSws();
     /** 添加数据包到视频包列表中 */
     void addVideoPkt(AVPacket &pkt);
     /** 清空视频包列表 */

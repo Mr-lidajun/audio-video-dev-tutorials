@@ -57,4 +57,5 @@ LIBS += -L $${FFMPEG_HOME}/lib \
         -lavformat \
         -lavutil \
         -lSDL2 \
-        -lswresample
+        -lswresample \
+        -lswscale

@@ -110,8 +110,7 @@ void VideoPlayer::readFile() {
     // 初始化视频信息
     _hasVideo = initVideoInfo() >= 0;
     if (!_hasAudio && !_hasVideo) {
-        emit playFailed(this);
-        free();
+        fataError();
         return;
     }
 
@@ -205,4 +204,10 @@ void VideoPlayer::free() {
     avformat_close_input(&_fmtCtx);
     freeAudio();
     freeVideo();
+}
+
+void VideoPlayer::fataError() {
+    setState(Stopped);
+    emit playFailed(this);
+    free();
 }
