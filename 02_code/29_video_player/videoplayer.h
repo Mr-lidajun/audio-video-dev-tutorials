@@ -167,7 +167,7 @@ private:
     /** 当前的状态 */
     State _state = Stopped;
     /** 文件名 */
-    const char *_filename;
+   char _filename[512];
     /** 初始化解码器和解码上下文 */
     int initDecoder(AVCodecContext **decodeCtx,
                     AVStream **stream,

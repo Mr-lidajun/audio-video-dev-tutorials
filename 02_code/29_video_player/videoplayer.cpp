@@ -61,8 +61,10 @@ VideoPlayer::State VideoPlayer::getState() {
 }
 
 void VideoPlayer::setFilename(QString &filename) {
-    _filename = filename.toUtf8().data();
-    qDebug() << "filename" << _filename;
+    // "666" -> 6 6 6 \0
+    // 字符串结尾包含\0, strlen读取的字符串长度不包含\0，所以需要+1
+    const char *name = filename.toUtf8().data();
+    memcpy(_filename, name, strlen(name) + 1);
 }
 
 int64_t VideoPlayer::getDuration() {
