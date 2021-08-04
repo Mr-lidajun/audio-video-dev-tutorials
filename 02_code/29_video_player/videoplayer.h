@@ -192,6 +192,7 @@ signals:
     void stateChanged(VideoPlayer *player);
     void initFinished(VideoPlayer *player);
     void playFailed(VideoPlayer *player);
+    void frameDecoded(VideoPlayer *player, uint8_t *data, VideoSwsSpec &spec);
 };
 
 #endif // VIDEOPLAYER_H
