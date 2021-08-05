@@ -15,11 +15,6 @@ int VideoPlayer::initVideoInfo() {
     initSws();
     RET(initSws);
 
-    // 开启新的线程去解码视频数据
-    std::thread([this](){
-        decodeVideo();
-    }).detach();
-
     return 0;
 }
 
@@ -110,11 +105,15 @@ void VideoPlayer::freeVideo() {
     _vSwsCtx = nullptr;
     _vStream = nullptr;
     _vTime = 0;
+    _vCanFree = false;
 }
 
 void VideoPlayer::decodeVideo() {
     while (true) {
-        if (_state == Stopped) break;
+        if (_state == Stopped) {
+            _vCanFree = true;
+            break;
+        }
 
         _vMutex.lock();
 
@@ -158,17 +157,21 @@ void VideoPlayer::decodeVideo() {
                       _vSwsOutFrame->data, _vSwsOutFrame->linesize);
 //            qDebug() << _vSwsOutFrame->data[0];
 
-            if (_aStream != nullptr) { // 有音频
+            if (_hasAudio) { // 有音频
                 // 如果视频包过早被解码出来，那就需要等待对应的音频时钟到达
                 while (_vTime > _aTime && _state == Playing) {
-                    SDL_Delay(5);
+//                    SDL_Delay(5);
                 }
             } else {
                 // TODO 没有音频的情况
             }
 
+            // 把像素格式转换后的图片数据，拷贝一份出来
+            uint8_t *data = (uint8_t *) av_malloc(_vSwsOutSpec.size);
+            memcpy(data, _vSwsOutFrame->data[0], _vSwsOutSpec.size);
             // 发出信号
-            emit frameDecoded(this, _vSwsOutFrame->data[0], _vSwsOutSpec);
+            emit frameDecoded(this, data, _vSwsOutSpec);
+            qDebug() << "渲染了一帧" << _vTime << _aTime;
         }
 
     }

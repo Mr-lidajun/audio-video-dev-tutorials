@@ -8,12 +8,18 @@
 #pragma mark - 构造、析构
 VideoPlayer::VideoPlayer(QObject *parent) : QObject(parent)
 {
-//    _aPktList = new std::list<AVPacket>();
-//    _vPktList = new std::list<AVPacket>();
+    // 初始化Audio子系统
+    if (SDL_Init(SDL_INIT_AUDIO)) {
+        // 返回值不是0，就代表失败
+        qDebug() << "SDL_Init error" << SDL_GetError();
+        emit playFailed(this);
+        return;
+    }
 }
 
 VideoPlayer::~VideoPlayer() {
-
+    stop();
+    SDL_Quit();
 }
 
 #pragma mark - 公共方法
@@ -38,8 +44,6 @@ void VideoPlayer::pause() {
 
     // 改变状态
     setState(Paused);
-
-
 }
 
 void VideoPlayer::stop() {
@@ -51,16 +55,16 @@ void VideoPlayer::stop() {
     _state = Stopped;
 
     // 释放资源
-//    free();
+    free();
 
     // 通知外界
     emit stateChanged(this);
 
-    std::thread([this]() {
-        // 留一定的时间给音视频while内的stop状态判断
-        SDL_Delay(100);
-        free();
-    }).detach();
+//    std::thread([this]() {
+//        // 留一定的时间给音视频while内的stop状态判断
+//        SDL_Delay(100);
+//        free();
+//    }).detach();
 }
 
 bool VideoPlayer::isPlaying() {
@@ -136,6 +140,14 @@ void VideoPlayer::readFile() {
     // 改变状态
     setState(Playing);
 
+    // 音频解码子线程：开始工作（需要放在设置Playing状态后）
+    SDL_PauseAudio(0);
+
+    // 视频解码子线程：开始工作（需要放在设置Playing状态后）
+    std::thread([this](){
+        decodeVideo();
+    }).detach();
+
     // 从输入文件中读取数据
     while (_state != Stopped) {
         int vSize = _vPktList.size();
@@ -143,7 +155,8 @@ void VideoPlayer::readFile() {
 
         if (vSize >= VIDEO_MAX_PKT_SIZE ||
                 aSize >= AUDIO_MAX_PKT_SIZE) {
-            SDL_Delay(10);
+//            SDL_Delay(10);
+            continue;
         }
 
         // 从输入文件中读取数据
@@ -166,6 +179,9 @@ void VideoPlayer::readFile() {
             continue;
         }
     }
+
+    // 标记一下：_fmtCtx可以释放了
+    _fmtCtxCanFree = true;
 }
 
 
@@ -227,13 +243,19 @@ int VideoPlayer::initDecoder(AVCodecContext **decodeCtx,
 }
 
 void VideoPlayer::free() {
+    while (_hasAudio && !_aCanFree);
+    while (_hasVideo && !_vCanFree);
+    while (!_fmtCtxCanFree);
     avformat_close_input(&_fmtCtx);
-//    freeAudio();
-//    freeVideo();
+    _fmtCtxCanFree = false;
+
+    freeAudio();
+    freeVideo();
 }
 
 void VideoPlayer::fataError() {
-    setState(Stopped);
+    // 配合stop能够调用成功
+    _state = Playing;
+    stop();
     emit playFailed(this);
-    free();
 }

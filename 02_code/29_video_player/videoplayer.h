@@ -115,6 +115,8 @@ private:
     int _aSwrOutSize = 0;
     /** 音频时钟，当前音频包对应的时间值 */
     double _aTime = 0;
+    /** 音频资源是否可以释放 */
+    bool _aCanFree = false;
     /** 是否有音频流 */
     bool _hasAudio = false;
 
@@ -152,6 +154,8 @@ private:
     CondMutex _vMutex;
     /** 视频时钟，当前视频包对应的时间值 */
     double _vTime = 0;
+    /** 视频资源是否可以释放 */
+    bool _vCanFree = false;
     /** 是否有视频流 */
     bool _hasVideo = false;
 
@@ -169,6 +173,8 @@ private:
     /******** 其他 ********/
     /** 解封装上下文 */
     AVFormatContext *_fmtCtx = nullptr;
+    /** fmtCtx是否可以释放 */
+    bool _fmtCtxCanFree = false;
     /** 音量 */
     int _volumn = Max;
     /** 静音 */

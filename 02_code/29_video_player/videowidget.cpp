@@ -27,6 +27,9 @@ void VideoWidget::onPlayerStateChanged(VideoPlayer *player) {
 void VideoWidget::onPlayerFrameDecoded(VideoPlayer *player,
                                        uint8_t *data,
                                        VideoPlayer::VideoSwsSpec &spec) {
+    if (player->getState() == VideoPlayer::Stopped) return;
+
+    // 释放之前的图片
     freeImage();
 
     // 创建新的图片
@@ -76,6 +79,8 @@ void VideoWidget::onPlayerFrameDecoded(VideoPlayer *player,
 
 void VideoWidget::freeImage() {
     if (_image) {
+        // _image->bits()数据就是videplayer_video中decodeVideo方法里av_malloc的uint8_t *data
+        av_free(_image->bits());
         delete _image;
         _image = nullptr;
     }
