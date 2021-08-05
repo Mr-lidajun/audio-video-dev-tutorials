@@ -2,6 +2,9 @@
 #include <thread>
 #include <QDebug>
 
+#define AUDIO_MAX_PKT_SIZE 1000
+#define VIDEO_MAX_PKT_SIZE 500
+
 #pragma mark - 构造、析构
 VideoPlayer::VideoPlayer(QObject *parent) : QObject(parent)
 {
@@ -18,13 +21,15 @@ void VideoPlayer::play() {
     if (_state == Playing) return;
     // 状态可能是：暂停、停止、正常完毕
 
-    // 开启线程：读取文件
-    std::thread([this]() {
-        readFile();
-    }).detach();
-
-    // 改变状态
-    setState(Playing);
+    if (_state == Stopped) {
+        // 开启线程：读取文件
+        std::thread([this]() {
+            readFile();
+        }).detach();
+    } else {
+        // 改变状态
+        setState(Playing);
+    }
 }
 
 void VideoPlayer::pause() {
@@ -46,10 +51,16 @@ void VideoPlayer::stop() {
     _state = Stopped;
 
     // 释放资源
-    free();
+//    free();
 
     // 通知外界
     emit stateChanged(this);
+
+    std::thread([this]() {
+        // 留一定的时间给音视频while内的stop状态判断
+        SDL_Delay(100);
+        free();
+    }).detach();
 }
 
 bool VideoPlayer::isPlaying() {
@@ -63,13 +74,18 @@ VideoPlayer::State VideoPlayer::getState() {
 void VideoPlayer::setFilename(QString &filename) {
     // "666" -> 6 6 6 \0
     // 字符串结尾包含\0, strlen读取的字符串长度不包含\0，所以需要+1
-    const char *name = filename.toUtf8().data();
+//    const char *name = filename.toUtf8().data();
+    const char *name = filename.toStdString().c_str();
     memcpy(_filename, name, strlen(name) + 1);
 }
 
-int64_t VideoPlayer::getDuration() {
+int VideoPlayer::getDuration() {
 //    return _fmtCtx ? _fmtCtx->duration : 0;
      return _fmtCtx ? round(_fmtCtx->duration / 1000000.0) : 0;
+}
+
+int VideoPlayer::getTime() {
+    return round(_aTime);
 }
 
 void VideoPlayer::setVolumn(int volumn) {
@@ -122,6 +138,14 @@ void VideoPlayer::readFile() {
 
     // 从输入文件中读取数据
     while (_state != Stopped) {
+        int vSize = _vPktList.size();
+        int aSize = _aPktList.size();
+
+        if (vSize >= VIDEO_MAX_PKT_SIZE ||
+                aSize >= AUDIO_MAX_PKT_SIZE) {
+            SDL_Delay(10);
+        }
+
         // 从输入文件中读取数据
         AVPacket pkt;
         ret = av_read_frame(_fmtCtx, &pkt);
@@ -130,6 +154,8 @@ void VideoPlayer::readFile() {
                 addAudioPkt(pkt);
             } else if (pkt.stream_index == _vStream->index) { // 读取到的是视频数据
                 addVideoPkt(pkt);
+            } else { // 如果不是音频、视频流，直接释放
+                av_packet_unref(&pkt);
             }
         } else if (ret == AVERROR_EOF) { // 读到了文件的尾部
             qDebug() << "已经读取到了文件尾部";
@@ -202,8 +228,8 @@ int VideoPlayer::initDecoder(AVCodecContext **decodeCtx,
 
 void VideoPlayer::free() {
     avformat_close_input(&_fmtCtx);
-    freeAudio();
-    freeVideo();
+//    freeAudio();
+//    freeVideo();
 }
 
 void VideoPlayer::fataError() {

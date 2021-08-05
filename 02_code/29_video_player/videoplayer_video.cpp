@@ -100,10 +100,22 @@ void VideoPlayer::clearVideoPktList() {
 void VideoPlayer::freeVideo() {
     clearVideoPktList();
     avcodec_free_context(&_vDecodeCtx);
+    av_frame_free(&_vSwsInFrame);
+    if (_vSwsOutFrame) {
+        // 由于_vSwsOutFrame->data[0]是我们自己alloc的内存空间，所以需要手动释放掉
+        av_freep(&_vSwsOutFrame->data[0]);
+        av_frame_free(&_vSwsOutFrame);
+    }
+    sws_freeContext(_vSwsCtx);
+    _vSwsCtx = nullptr;
+    _vStream = nullptr;
+    _vTime = 0;
 }
 
 void VideoPlayer::decodeVideo() {
     while (true) {
+        if (_state == Stopped) break;
+
         _vMutex.lock();
 
         if (_vPktList.empty()) {
@@ -116,6 +128,11 @@ void VideoPlayer::decodeVideo() {
         AVPacket pkt = _vPktList.front();
         _vPktList.pop_front();
         _vMutex.unlock();
+
+        // 视频时钟
+        if (pkt.dts != AV_NOPTS_VALUE) {
+            _vTime = av_q2d(_vStream->time_base) * pkt.dts;
+        }
 
         // 发送压缩数据到解码器
         int ret = avcodec_send_packet(_vDecodeCtx, &pkt);
@@ -131,7 +148,7 @@ void VideoPlayer::decodeVideo() {
             } else BREAK(avcodec_receive_frame);
 
             // TODO 假停顿，1000/30
-            SDL_Delay(33);
+//            SDL_Delay(33);
 
             // 像素格式的转换
             // _vSwsInFrame(yuv420p) -> _vSwsOutFrame(rgb24)
@@ -139,8 +156,16 @@ void VideoPlayer::decodeVideo() {
                       _vSwsInFrame->data, _vSwsInFrame->linesize,
                       0, _vDecodeCtx->height,
                       _vSwsOutFrame->data, _vSwsOutFrame->linesize);
-
 //            qDebug() << _vSwsOutFrame->data[0];
+
+            if (_aStream != nullptr) { // 有音频
+                // 如果视频包过早被解码出来，那就需要等待对应的音频时钟到达
+                while (_vTime > _aTime && _state == Playing) {
+                    SDL_Delay(5);
+                }
+            } else {
+                // TODO 没有音频的情况
+            }
 
             // 发出信号
             emit frameDecoded(this, _vSwsOutFrame->data[0], _vSwsOutSpec);

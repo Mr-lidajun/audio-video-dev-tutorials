@@ -19,12 +19,17 @@ MainWindow::MainWindow(QWidget *parent)
     // 监听信号
     connect(_player, &VideoPlayer::stateChanged,
             this, &MainWindow::onPlayerStateChanged);
+    connect(_player, &VideoPlayer::timeChanged,
+            this, &MainWindow::onPlayerTimeChanged);
     connect(_player, &VideoPlayer::initFinished,
             this, &MainWindow::onPlayerInitFinished);
     connect(_player, &VideoPlayer::playFailed,
             this, &MainWindow::onPlayerPlayFailed);
+
     connect(_player, &VideoPlayer::frameDecoded,
             ui->videoWidget, &VideoWidget::onPlayerFrameDecoded);
+    connect(_player, &VideoPlayer::stateChanged,
+            ui->videoWidget, &VideoWidget::onPlayerStateChanged);
 
     // 设置音量滑块的范围
     ui->volumnSlider->setRange(VideoPlayer::Volumn::Min,
@@ -53,6 +58,10 @@ void MainWindow::onPlayerInitFinished(VideoPlayer *player) {
 
     // 设置label的文字
     ui->durationLabel->setText(getTimeText(duration));
+}
+
+void MainWindow::onPlayerTimeChanged(VideoPlayer( *player)) {
+    ui->currentSlider->setValue(player->getTime());
 }
 
 void MainWindow::onPlayerStateChanged(VideoPlayer *player) {

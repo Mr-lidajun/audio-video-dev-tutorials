@@ -75,15 +75,15 @@ public:
     void setFilename(QString &filename);
     /** 获取总时长（单位是微秒，1秒=10^3毫秒=10^6微秒） */
     /** 获取总时长（单位是秒） */
-    int64_t getDuration();
+    int getDuration();
+    /** 当前的播放时刻（单位是秒） */
+    int getTime();
     /** 设置音量 */
     void setVolumn(int volumn);
     int getVolumn();
     /** 设置静音 */
     void setMute(bool mute);
     bool isMute();
-
-
 
 private:
     /******** 音频相关 ********/
@@ -113,6 +113,8 @@ private:
     int _aSwrOutIdx = 0;
     /** 音频重采样输出PCM的大小 */
     int _aSwrOutSize = 0;
+    /** 音频时钟，当前音频包对应的时间值 */
+    double _aTime = 0;
     /** 是否有音频流 */
     bool _hasAudio = false;
 
@@ -148,6 +150,8 @@ private:
     std::list<AVPacket> _vPktList;
     /** 视频包列表的锁 */
     CondMutex _vMutex;
+    /** 视频时钟，当前视频包对应的时间值 */
+    double _vTime = 0;
     /** 是否有视频流 */
     bool _hasVideo = false;
 
@@ -189,8 +193,13 @@ private:
     void fataError();
 
 signals:
+    /** 通知外界：播放状态发生了改变 */
     void stateChanged(VideoPlayer *player);
+    /** 通知外界：播放时间点发生了改变 */
+    void timeChanged(VideoPlayer *player);
+    /** 通知外界：播放器初始化完成 */
     void initFinished(VideoPlayer *player);
+    /** 通知外界：播放失败 */
     void playFailed(VideoPlayer *player);
     void frameDecoded(VideoPlayer *player, uint8_t *data, VideoSwsSpec &spec);
 };

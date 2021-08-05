@@ -16,14 +16,18 @@ void VideoWidget::paintEvent(QPaintEvent *event) {
     QPainter(this).drawImage(_rect, *_image);
 }
 
+void VideoWidget::onPlayerStateChanged(VideoPlayer *player) {
+    if (player->getState() != VideoPlayer::Stopped) return;
+
+    freeImage();
+    // 刷新
+    update();
+}
+
 void VideoWidget::onPlayerFrameDecoded(VideoPlayer *player,
                                        uint8_t *data,
                                        VideoPlayer::VideoSwsSpec &spec) {
-    // 释放之前的图片
-    if (_image) {
-        delete _image;
-        _image = nullptr;
-    }
+    freeImage();
 
     // 创建新的图片
     if (data != nullptr) {
@@ -66,5 +70,13 @@ void VideoWidget::onPlayerFrameDecoded(VideoPlayer *player,
         _rect = QRect(dx, dy, dw, dh);
     }
 
+    // 刷新
     update();
+}
+
+void VideoWidget::freeImage() {
+    if (_image) {
+        delete _image;
+        _image = nullptr;
+    }
 }

@@ -129,6 +129,7 @@ void VideoPlayer::clearAudioPktList() {
 }
 
 void VideoPlayer::freeAudio() {
+    _aTime = 0;
     _aSwrOutIdx = 0;
     _aSwrOutSize = 0;
     _aStream = nullptr;
@@ -138,6 +139,7 @@ void VideoPlayer::freeAudio() {
     swr_free(&_aSwrCtx);
     av_frame_free(&_aSwrInFrame);
     if (_aSwrOutFrame) {
+        // 由于_aSwrOutFrame->data[0]是我们自己alloc的内存空间，所以需要手动释放掉
         av_freep(&_aSwrOutFrame->data[0]);
         av_frame_free(&_aSwrOutFrame);
     }
@@ -212,6 +214,13 @@ int VideoPlayer::decodeAudio() {
     _aPktList.pop_front();
     // 解锁
     _aMutex.unlock();
+
+    // 保存音频时钟
+    if (pkt.pts != AV_NOPTS_VALUE) {
+        _aTime = av_q2d(_aStream->time_base) * pkt.pts;
+        // 通知外界：播放时间点发生了改变
+        emit timeChanged(this);
+    }
 
     // 发送压缩数据到解码器
     int ret = avcodec_send_packet(_aDecodeCtx, &pkt);
