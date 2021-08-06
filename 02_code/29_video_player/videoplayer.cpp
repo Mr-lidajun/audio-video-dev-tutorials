@@ -85,11 +85,16 @@ void VideoPlayer::setFilename(QString &filename) {
 
 int VideoPlayer::getDuration() {
 //    return _fmtCtx ? _fmtCtx->duration : 0;
-     return _fmtCtx ? round(_fmtCtx->duration / 1000000.0) : 0;
+//     return _fmtCtx ? round(_fmtCtx->duration / 1000000.0) : 0;
+    return _fmtCtx ? round(_fmtCtx->duration * av_q2d(AV_TIME_BASE_Q)) : 0;
 }
 
 int VideoPlayer::getTime() {
     return round(_aTime);
+}
+
+void VideoPlayer::setTime(int seekTime) {
+    _seekTime = seekTime;
 }
 
 void VideoPlayer::setVolumn(int volumn) {
@@ -150,6 +155,34 @@ void VideoPlayer::readFile() {
 
     // 从输入文件中读取数据
     while (_state != Stopped) {
+        // 处理seek操作
+        if (_seekTime >= 0) {
+            int streamIdx;
+            if (_hasAudio) { // 优先使用音频流索引
+                streamIdx = _aStream->index;
+            } else {
+                streamIdx = _vStream->index;
+            }
+
+            // 现实时间 -> 时间戳
+            AVRational timeBase = _fmtCtx->streams[streamIdx]->time_base;
+            int64_t ts = _seekTime / av_q2d(timeBase);
+            ret = av_seek_frame(_fmtCtx, streamIdx, ts, AVSEEK_FLAG_BACKWARD);
+            if (ret < 0) { // seek失败
+                qDebug() << "seek失败" << _seekTime << ts << streamIdx;
+                _seekTime = -1;
+            } else {
+                qDebug() << "seek成功" << _seekTime << ts << streamIdx;
+                _seekTime = -1;
+                // 恢复时钟
+                _aTime = 0;
+                _vTime = 0;
+                // 清空之前读取的数据包
+                clearAudioPktList();
+                clearVideoPktList();
+            }
+        }
+
         int vSize = _vPktList.size();
         int aSize = _aPktList.size();
 
@@ -171,8 +204,8 @@ void VideoPlayer::readFile() {
                 av_packet_unref(&pkt);
             }
         } else if (ret == AVERROR_EOF) { // 读到了文件的尾部
-            qDebug() << "已经读取到了文件尾部";
-            break;
+            // 此处不能break，因为一旦break，while循环将会退出，后续用户seek操作将会无效
+            // break;
         } else {
             ERROR_BUF;
             qDebug() << "av_read_frame error" << errbuf;
@@ -248,6 +281,7 @@ void VideoPlayer::free() {
     while (!_fmtCtxCanFree);
     avformat_close_input(&_fmtCtx);
     _fmtCtxCanFree = false;
+    _seekTime = -1;
 
     freeAudio();
     freeVideo();

@@ -78,6 +78,8 @@ public:
     int getDuration();
     /** 当前的播放时刻（单位是秒） */
     int getTime();
+    /** 设置当前的播放时刻（单位是秒） */
+    void setTime(int seekTime);
     /** 设置音量 */
     void setVolumn(int volumn);
     int getVolumn();
@@ -182,7 +184,10 @@ private:
     /** 当前的状态 */
     State _state = Stopped;
     /** 文件名 */
-   char _filename[512];
+    char _filename[512];
+    /** 外面设置的当前播放时刻（用于完成seek功能） */
+    int _seekTime = -1;
+
     /** 初始化解码器和解码上下文 */
     int initDecoder(AVCodecContext **decodeCtx,
                     AVStream **stream,
