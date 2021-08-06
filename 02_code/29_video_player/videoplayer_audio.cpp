@@ -159,6 +159,7 @@ void VideoPlayer::sdlAudioCallback(Uint8 *stream, int len) {
 
     // len：SDL音频缓冲区剩余的大小（还未填充的大小）
     while (len > 0) {
+        if (_state == Paused) break;
         if (_state == Stopped) {
             _aCanFree = true;
             break;
@@ -224,6 +225,7 @@ int VideoPlayer::decodeAudio() {
         emit timeChanged(this);
     }
 
+    // 如果是视频，不能在这个位置判断（不能提前释放pkt，不然会导致B帧、P帧解码失败，画面撕裂）
     // 发现音频的时间是早于seekTime，直接丢弃
     if (_aSeekTime >= 0) {
         if (_aTime < _aSeekTime) {

@@ -111,6 +111,10 @@ void VideoPlayer::freeVideo() {
 
 void VideoPlayer::decodeVideo() {
     while (true) {
+        // 如果是暂停，并且没有Seek操作
+        if (_state == Paused && _vSeekTime == -1) {
+            continue;
+        }
         if (_state == Stopped) {
             _vCanFree = true;
             break;
@@ -148,7 +152,6 @@ void VideoPlayer::decodeVideo() {
             } else BREAK(avcodec_receive_frame);
 
             // 一定要在解码成功后，再进行下面的判断
-            // 如果是视频，不能在这个位置判断（不能提前释放pkt，不然会导致B帧、P帧解码失败，画面撕裂）
             // 发现视频的时间是早于seekTime的，直接丢弃
             if (_vSeekTime >= 0) {
                 if (_vTime < _vSeekTime) {

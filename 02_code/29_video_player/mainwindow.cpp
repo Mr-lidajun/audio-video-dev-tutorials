@@ -123,7 +123,12 @@ void MainWindow::on_openFileBtn_clicked()
 
 void MainWindow::on_playBtn_clicked()
 {
-
+    VideoPlayer::State state = _player->getState();
+    if (state == VideoPlayer::Playing) {
+        _player->pause();
+    } else {
+        _player->play();
+    }
 }
 
 void MainWindow::on_stopBtn_clicked()
