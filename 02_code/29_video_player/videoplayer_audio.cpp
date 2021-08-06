@@ -131,6 +131,7 @@ void VideoPlayer::freeAudio() {
     _aSwrOutSize = 0;
     _aStream = nullptr;
     _aCanFree = false;
+    _aSeekTime = -1;
 
     clearAudioPktList();
     avcodec_free_context(&_aDecodeCtx);
@@ -221,6 +222,17 @@ int VideoPlayer::decodeAudio() {
         _aTime = av_q2d(_aStream->time_base) * pkt.pts;
         // 通知外界：播放时间点发生了改变
         emit timeChanged(this);
+    }
+
+    // 发现音频的时间是早于seekTime，直接丢弃
+    if (_aSeekTime >= 0) {
+        if (_aTime < _aSeekTime) {
+            // 释放pkt
+            av_packet_unref(&pkt);
+            return 0;
+        } else {
+            _aSeekTime = -1;
+        }
     }
 
     // 发送压缩数据到解码器

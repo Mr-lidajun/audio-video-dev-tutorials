@@ -106,6 +106,7 @@ void VideoPlayer::freeVideo() {
     _vStream = nullptr;
     _vTime = 0;
     _vCanFree = false;
+    _vSeekTime = -1;
 }
 
 void VideoPlayer::decodeVideo() {
@@ -145,6 +146,17 @@ void VideoPlayer::decodeVideo() {
             if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
                 break;
             } else BREAK(avcodec_receive_frame);
+
+            // 一定要在解码成功后，再进行下面的判断
+            // 如果是视频，不能在这个位置判断（不能提前释放pkt，不然会导致B帧、P帧解码失败，画面撕裂）
+            // 发现视频的时间是早于seekTime的，直接丢弃
+            if (_vSeekTime >= 0) {
+                if (_vTime < _vSeekTime) {
+                    continue;
+                } else {
+                    _vSeekTime = -1;
+                }
+            }
 
             // TODO 假停顿，1000/30
 //            SDL_Delay(33);

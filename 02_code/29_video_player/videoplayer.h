@@ -119,6 +119,8 @@ private:
     double _aTime = 0;
     /** 音频资源是否可以释放 */
     bool _aCanFree = false;
+    /** 外面设置的当前播放时刻（用于完成seek功能） */
+    int _aSeekTime = -1;
     /** 是否有音频流 */
     bool _hasAudio = false;
 
@@ -158,6 +160,8 @@ private:
     double _vTime = 0;
     /** 视频资源是否可以释放 */
     bool _vCanFree = false;
+    /** 外面设置的当前播放时刻（用于完成seek功能） */
+    int _vSeekTime = -1;
     /** 是否有视频流 */
     bool _hasVideo = false;
 

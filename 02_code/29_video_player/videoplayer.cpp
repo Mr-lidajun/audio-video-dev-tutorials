@@ -18,6 +18,8 @@ VideoPlayer::VideoPlayer(QObject *parent) : QObject(parent)
 }
 
 VideoPlayer::~VideoPlayer() {
+    // 不再对外发送消息
+    disconnect();
     stop();
     SDL_Quit();
 }
@@ -173,6 +175,8 @@ void VideoPlayer::readFile() {
                 _seekTime = -1;
             } else {
                 qDebug() << "seek成功" << _seekTime << ts << streamIdx;
+                _vSeekTime = _seekTime;
+                _aSeekTime = _seekTime;
                 _seekTime = -1;
                 // 恢复时钟
                 _aTime = 0;
@@ -206,6 +210,11 @@ void VideoPlayer::readFile() {
         } else if (ret == AVERROR_EOF) { // 读到了文件的尾部
             // 此处不能break，因为一旦break，while循环将会退出，后续用户seek操作将会无效
             // break;
+            if (vSize == 0 && aSize == 0) {
+                // 说明文件正常播放完毕
+               _fmtCtxCanFree = true;
+               break;
+            }
         } else {
             ERROR_BUF;
             qDebug() << "av_read_frame error" << errbuf;
@@ -213,8 +222,12 @@ void VideoPlayer::readFile() {
         }
     }
 
-    // 标记一下：_fmtCtx可以释放了
-    _fmtCtxCanFree = true;
+    if (_fmtCtxCanFree) { // 文件正常播放完毕
+        stop();
+    } else {
+        // 标记一下：_fmtCtx可以释放了
+        _fmtCtxCanFree = true;
+    }
 }
 
 
